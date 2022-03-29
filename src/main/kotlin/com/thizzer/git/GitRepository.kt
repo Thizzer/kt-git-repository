@@ -30,6 +30,14 @@ class Git {
             return branch
         }
 
+        fun getBranchWithName(name: String): Branch? {
+            return branches.find { it.name == name }
+        }
+
+        fun getCommitWithTag(tag: String): Commit? {
+            return branches.flatMap { it.commits }.find { it.hasTag(tag) }
+        }
+
         fun refs(): Map<String, String> {
             val refs = mutableMapOf<String, String>()
 
@@ -663,6 +671,10 @@ class Git {
             commitContent += message
 
             return commitContent.toByteArray()
+        }
+
+        fun hasTag(tag: String): Boolean {
+            return tags.find { it.tag == tag } != null
         }
     }
 
