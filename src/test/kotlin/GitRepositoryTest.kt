@@ -73,4 +73,49 @@ class GitRepositoryTest {
         val nonExistingRepoCommit = repository.getCommitWithTag("not-a-tag")
         Assertions.assertNull(nonExistingRepoCommit)
     }
+
+    @Test
+    fun depthTest() {
+        val repository = gitRepository {
+            branch("main") {
+                commit("First commit.") {
+                    author("User", "noreply@example.com")
+
+                    file("README.md", "A.")
+                }
+                commit("Second commit.") {
+                    author("User", "noreply@example.com")
+
+                    file("README.md", "B.")
+                }
+                commit("Third commit.") {
+                    author("User", "noreply@example.com")
+
+                    file("README.md", "C.")
+                }
+            }
+        }
+
+        val mostRecentCommit = repository.getHead()?.getLastCommit()
+        Assertions.assertNotNull(mostRecentCommit)
+        Assertions.assertTrue(mostRecentCommit?.hasParent() == true)
+
+        val mostRecentCommitHashList = listOf(mostRecentCommit!!.hash())
+
+        val noSpecifiedDepthObjects = repository.byHashesWithChildren(mostRecentCommitHashList)
+        Assertions.assertNotNull(noSpecifiedDepthObjects)
+        Assertions.assertEquals(9, noSpecifiedDepthObjects.size)
+
+        val twoDepthObjects = repository.byHashesWithChildren(mostRecentCommitHashList, depth = 2)
+        Assertions.assertNotNull(twoDepthObjects)
+        Assertions.assertEquals(6, twoDepthObjects.size)
+
+        val oneDepthObjects = repository.byHashesWithChildren(mostRecentCommitHashList, depth = 1)
+        Assertions.assertNotNull(oneDepthObjects)
+        Assertions.assertEquals(3, oneDepthObjects.size)
+
+        val fourDepthObjects = repository.byHashesWithChildren(mostRecentCommitHashList, depth = 4)
+        Assertions.assertNotNull(fourDepthObjects)
+        Assertions.assertEquals(9, fourDepthObjects.size)
+    }
 }

@@ -8,7 +8,6 @@ import java.lang.ref.WeakReference
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.LocalDateTime
-import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.TextStyle
@@ -28,6 +27,10 @@ class Git {
             branch.configure()
             branches.add(branch)
             return branch
+        }
+
+        fun getHead(): Branch? {
+            return branches.firstOrNull()
         }
 
         fun getBranchWithName(name: String): Branch? {
@@ -110,7 +113,7 @@ class Git {
          *
          * @return The found objects, or an empty list if none could not be found.
          */
-        fun byHashesWithChildren(hashes: List<String>, exclude: List<String>): List<Object> {
+        fun byHashesWithChildren(hashes: List<String>, exclude: List<String> = listOf(), depth: Int? = null): List<Object> {
             val parents = byHashes(hashes)
 
             val objects = mutableListOf<Object>()
@@ -123,7 +126,11 @@ class Git {
                     objects.add(parent)
                     objects.addAll(parent.children(true, true, *exclude.toTypedArray()))
                 } else if (parent is Commit) {
-                    objects.addAll(parent.all(true, *exclude.toTypedArray()))
+                    objects.addAll(parent.all(true, *exclude.toTypedArray(), depth = depth))
+                } else if (parent is Tag) {
+                    parent.commit.get()?.apply {
+                        objects.addAll(all(true, *exclude.toTypedArray(), depth = depth))
+                    }
                 } else {
                     objects.add(parent)
                 }
@@ -417,6 +424,14 @@ class Git {
             commits.add(commit)
             return commit
         }
+
+        fun getFirstCommit(): Commit? {
+            return commits.firstOrNull()
+        }
+
+        fun getLastCommit(): Commit? {
+            return commits.lastOrNull()
+        }
     }
 
     class Folder(name: String) : Tree(name)
@@ -607,9 +622,14 @@ class Git {
             }
         }
 
-        fun all(includeSelf: Boolean = true, vararg exclude: String, includeTags: Boolean = true): List<Object> {
+        fun all(
+            includeSelf: Boolean = true,
+            vararg exclude: String,
+            depth: Int? = null,
+            includeTags: Boolean = true
+        ): List<Object> {
             val unfiltered = mutableListOf<Object>()
-            if (exclude.contains(hash())) {
+            if (exclude.contains(hash()) || depth == 0) {
                 return unfiltered
             }
 
@@ -628,8 +648,10 @@ class Git {
                     unfiltered.add(tree)
                     unfiltered.addAll(tree.children(true, true, *exclude))
                 }
+
+                val parentDepth = depth?.minus(1)
                 parent.get()?.apply {
-                    unfiltered.addAll(all(true, *exclude))
+                    unfiltered.addAll(all(true, *exclude, depth = parentDepth))
                 }
             }
 
@@ -646,8 +668,24 @@ class Git {
          */
         fun byHash(hash: String): Object? {
             return read {
+                if (tree.hash() == hash) {
+                    return@read tree
+                }
+
                 tags.find { it.annotated() && it.hash() == hash } ?: tree.byHash(hash)
             }
+        }
+
+        fun hasTag(tag: String): Boolean {
+            return tags.find { it.tag == tag } != null
+        }
+
+        fun hasParent(): Boolean {
+            return parent.get() != null
+        }
+
+        fun getParent(): Commit? {
+            return parent.get()
         }
 
         /**
@@ -672,14 +710,10 @@ class Git {
 
             return commitContent.toByteArray()
         }
-
-        fun hasTag(tag: String): Boolean {
-            return tags.find { it.tag == tag } != null
-        }
     }
 
     class Tag(commit: Commit, val tag: String, val message: String? = null) : Object(Type.TAG) {
-        private val commit: WeakReference<Commit> = WeakReference(commit)
+        internal val commit: WeakReference<Commit> = WeakReference(commit)
 
         var tagger: User? = null
             set(value) {

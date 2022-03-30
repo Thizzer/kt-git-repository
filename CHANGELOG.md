@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2022-03-30
+
+### Added
+- Function to get HEAD.
+- Functions to get first and last commit.
+- Functions to check if commit has, and get the parent.
+- Option to specify depth when retrieving list of objects with their children.
+
+### Changed
+- Reformat
+
+### Fixed
+- Return tree if hash matches when calling Commit.byHash
+
 ## [1.0.4] - 2022-03-29
 
 ### Added 
