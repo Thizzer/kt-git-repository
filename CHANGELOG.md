@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2022-04-01
+
+### Changed
+- Overdue for minor version update.
+- Fix for commit and tag date format.
+
 ## [1.0.5] - 2022-03-30
 
 ### Added

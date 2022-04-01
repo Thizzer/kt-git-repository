@@ -12,6 +12,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.TextStyle
 import java.util.*
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -696,16 +697,14 @@ class Git {
                 throw RuntimeException("Unable to create object for Commit. Error: Author not configured.")
             }
 
-            val objectDate = date.atZone(ZoneId.systemDefault()).toOffsetDateTime()
-            val timestamp = objectDate.toEpochSecond()
-            val offset = objectDate.offset.getDisplayName(TextStyle.NARROW, Locale.ENGLISH).replace(":", "")
+            val commitDate = date.truncatedTo(TimeUnit.SECONDS.toChronoUnit()).toString()
 
             var commitContent = "${tree.type.prefix} ${tree.hash()}\n"
             if (parent.get() != null) {
                 commitContent += "parent ${parent.get()!!.hash()}\n"
             }
-            commitContent += "author ${author?.name ?: "Unknown"} <${author?.email ?: "unknown"}> $timestamp $offset\n"
-            commitContent += "committer ${author?.name ?: "Unknown"} <${author?.email ?: "unknown"}> $timestamp $offset\n\n"
+            commitContent += "author ${author?.name ?: "Unknown"} <${author?.email ?: "unknown"}> $commitDate\n"
+            commitContent += "committer ${author?.name ?: "Unknown"} <${author?.email ?: "unknown"}> $commitDate\n\n"
             commitContent += message
 
             return commitContent.toByteArray()
@@ -745,17 +744,15 @@ class Git {
                 throw RuntimeException("Unable to create object for Tag. Error: Tagger not configured.")
             }
 
-            val objectDate = date.atZone(ZoneId.systemDefault()).toOffsetDateTime()
-            val timestamp = objectDate.toEpochSecond()
-            val offset = objectDate.offset.getDisplayName(TextStyle.NARROW, Locale.ENGLISH).replace(":", "")
+            val tagDate = date.truncatedTo(TimeUnit.SECONDS.toChronoUnit()).toString()
 
-            var commitContent = "object ${commit.get()?.hash()}\n"
-            commitContent += "type ${commit.get()?.type?.prefix}\n"
-            commitContent += "tag $tag\n"
-            commitContent += "tagger ${tagger?.name ?: "Unknown"} <${tagger?.email ?: "unknown"}> $timestamp $offset\n\n"
-            commitContent += message
+            var tagContent = "object ${commit.get()?.hash()}\n"
+            tagContent += "type ${commit.get()?.type?.prefix}\n"
+            tagContent += "tag $tag\n"
+            tagContent += "tagger ${tagger?.name ?: "Unknown"} <${tagger?.email ?: "unknown"}> $tagDate\n\n"
+            tagContent += message
 
-            return commitContent.toByteArray()
+            return tagContent.toByteArray()
         }
     }
 }
