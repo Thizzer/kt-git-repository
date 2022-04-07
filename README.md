@@ -12,7 +12,7 @@ Note: To be used as actual object- and packfiles, the generated content has to b
 <dependency>
 	<groupId>com.thizzer.kt-git-repository</groupId>
 	<artifactId>kt-git-repository</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 </dependency>
 ```
 
@@ -21,13 +21,13 @@ Note: To be used as actual object- and packfiles, the generated content has to b
 #### Groovy
 
 ```gradle
-implementation group: 'com.thizzer.kt-git-repository', name: 'kt-git-repository', version: '1.1.0'
+implementation group: 'com.thizzer.kt-git-repository', name: 'kt-git-repository', version: '1.2.0'
 ```
 
 #### Kotlin
 
 ```kotlin
-implementation("com.thizzer.kt-git-repository:kt-git-repository:1.1.0")
+implementation("com.thizzer.kt-git-repository:kt-git-repository:1.2.0")
 ```
 
 ## Usage
