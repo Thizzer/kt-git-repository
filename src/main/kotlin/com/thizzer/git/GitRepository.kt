@@ -9,13 +9,12 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.format.TextStyle
+import java.time.format.DateTimeFormatter
 import java.util.*
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
+
 
 class Git {
     class User(val name: String, val email: String)
@@ -114,7 +113,11 @@ class Git {
          *
          * @return The found objects, or an empty list if none could not be found.
          */
-        fun byHashesWithChildren(hashes: List<String>, exclude: List<String> = listOf(), depth: Int? = null): List<Object> {
+        fun byHashesWithChildren(
+            hashes: List<String>,
+            exclude: List<String> = listOf(),
+            depth: Int? = null
+        ): List<Object> {
             val parents = byHashes(hashes)
 
             val objects = mutableListOf<Object>()
@@ -259,6 +262,21 @@ class Git {
             }
         }
 
+        private fun addChild(`object`: NamedObject) {
+            write {
+                children.add(`object`)
+                children.sortWith { a, b ->
+                    if (a.name.startsWith(b.name)) {
+                        -1
+                    } else if (b.name.startsWith(a.name)) {
+                        1
+                    } else {
+                        a.name.compareTo(b.name)
+                    }
+                }
+            }
+        }
+
         fun file(path: String, content: File.FileContent, configure: File.() -> Unit = {}) {
             file(path) {
                 content(content)
@@ -315,16 +333,14 @@ class Git {
                 if (parentFolder == null) {
                     val file = File(filePath.fileName.toString())
                     file.configure()
-                    children.add(file)
-                    children.sortBy { it.name }
+                    addChild(file)
                     return@write
                 }
 
                 var parentTree = children.find { it is Folder && it.name == parentFolder.toString() }
                 if (parentTree == null) {
                     parentTree = Folder(parentFolder.toString())
-                    children.add(parentTree)
-                    children.sortBy { it.name }
+                    addChild(parentTree)
                 }
 
                 (parentTree as Folder).file(filePath.subpath(1, filePath.nameCount).toString(), configure)
@@ -402,27 +418,23 @@ class Git {
         /**
          * Add a new commit to this branch.
          *
-         * @param message
-         *      The message for this commit.
-         *
-         * @note The parent of the commit will automatically be the most recently added commit. If there are no commits no parent will be specified.
-         */
-        fun commit(message: String, configure: Commit.() -> Unit): Commit {
-            return commit(commits.lastOrNull(), message, configure)
-        }
-
-        /**
-         * Add a new commit to this branch.
-         *
          * @param parent
          *      The parent of this commit.
          * @param message
          *      The message for this commit, or null if it is the first commit.
          */
-        fun commit(parent: Commit?, message: String, configure: Commit.() -> Unit): Commit {
-            val commit = Commit(parent, message = message)
+        fun commit(message: String, configure: Commit.() -> Unit): Commit {
+            val commit = Commit(message)
             commit.configure()
             commits.add(commit)
+
+            commits.sortBy { it.date }
+            commits.forEachIndexed { index, it ->
+                if (index > 0) {
+                    it.parent = WeakReference(commits[index - 1])
+                }
+            }
+
             return commit
         }
 
@@ -510,9 +522,9 @@ class Git {
         }
     }
 
-    class Commit(parent: Commit? = null, val message: String) : Object(Type.COMMIT) {
+    class Commit(val message: String) : Object(Type.COMMIT) {
         private val tree: Tree = Tree("")
-        private val parent: WeakReference<Commit> = WeakReference(parent)
+        internal var parent: WeakReference<Commit> = WeakReference(null)
         internal val tags: MutableList<Tag> = mutableListOf()
 
         var author: User? = null
@@ -521,7 +533,7 @@ class Git {
                     field = value
                 }
             }
-        var date: LocalDateTime = LocalDateTime.now(ZoneOffset.UTC)
+        var date: LocalDateTime = LocalDateTime.now()
             set(value) {
                 write {
                     field = value
@@ -559,7 +571,9 @@ class Git {
          *      Static content for the file.
          */
         fun file(path: String, content: String, configure: File.() -> Unit = {}) {
-            tree.file(path, content, configure)
+            write {
+                tree.file(path, content, configure)
+            }
         }
 
         /**
@@ -571,7 +585,9 @@ class Git {
          *      Static content for the file.
          */
         fun file(path: String, content: ByteArray, configure: File.() -> Unit = {}) {
-            tree.file(path, content, configure)
+            write {
+                tree.file(path, content, configure)
+            }
         }
 
         /**
@@ -584,11 +600,15 @@ class Git {
          *      The loaded content is not kept anywhere and the call will be made any time the content is needed.
          */
         fun file(path: String, content: () -> ByteArray?, configure: File.() -> Unit = {}) {
-            tree.file(path, content, configure)
+            write {
+                tree.file(path, content, configure)
+            }
         }
 
         fun file(path: String, configure: File.() -> Unit = {}) {
-            tree.file(path, configure)
+            write {
+                tree.file(path, configure)
+            }
         }
 
         /**
@@ -697,7 +717,8 @@ class Git {
                 throw RuntimeException("Unable to create object for Commit. Error: Author not configured.")
             }
 
-            val commitDate = date.truncatedTo(TimeUnit.SECONDS.toChronoUnit()).toString()
+            val objectDate = date.atZone(ZoneId.systemDefault()).toOffsetDateTime()
+            val commitDate = "${objectDate.toEpochSecond()} ${objectDate.format(DateTimeFormatter.ofPattern("Z"))}"
 
             var commitContent = "${tree.type.prefix} ${tree.hash()}\n"
             if (parent.get() != null) {
@@ -721,7 +742,7 @@ class Git {
                 }
             }
 
-        var date: LocalDateTime = LocalDateTime.now(ZoneOffset.UTC)
+        var date: LocalDateTime = LocalDateTime.now()
             set(value) {
                 write {
                     field = value
@@ -744,7 +765,8 @@ class Git {
                 throw RuntimeException("Unable to create object for Tag. Error: Tagger not configured.")
             }
 
-            val tagDate = date.truncatedTo(TimeUnit.SECONDS.toChronoUnit()).toString()
+            val objectDate = date.atZone(ZoneId.systemDefault()).toOffsetDateTime()
+            val tagDate = "${objectDate.toEpochSecond()} ${objectDate.format(DateTimeFormatter.ofPattern("Z"))}"
 
             var tagContent = "object ${commit.get()?.hash()}\n"
             tagContent += "type ${commit.get()?.type?.prefix}\n"

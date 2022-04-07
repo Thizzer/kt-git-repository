@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2022-04-07
+
+### Changed
+- Determine parents of commit by date rather than using the previous commit added.
+
+### Fixed
+- Sorting of filenames in tree.
+- Error in dateformat.
+
 ## [1.1.0] - 2022-04-01
 
 ### Changed
