@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2022-12-26
+
+### Added
+- Added build function to preload repository data.
+
+### Changed
+- Separate hash- from object generation. 
+
+### Fixed
+- Make sure object gets released if keepInMemory returns false.
+
 ## [1.2.0] - 2022-04-07
 
 ### Changed
