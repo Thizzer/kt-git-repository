@@ -142,6 +142,19 @@ class Git {
 
             return objects.distinctBy { it.hash() }
         }
+
+        /**
+         * Build the repository.
+         * This loads any asynchronous content allowing hashes to be calculated and additional metadata to be (pre-)known.
+         *
+         * @return The repository
+         */
+        fun build(): Repository {
+            branches.forEach { branch ->
+                branch.build()
+            }
+            return this
+        }
     }
 
     sealed class Object(val type: Type) {
@@ -224,6 +237,16 @@ class Git {
 
         fun hashBytes(): ByteArray {
             return MessageDigest.getInstance("SHA-1").digest(toObject())
+
+        /**
+         * Build the commit.
+         * This loads any asynchronous content allowing hashes to be calculated and additional metadata to be (pre-)known.
+         *
+         * @return The commit
+         */
+        fun build(): Object {
+            hash()
+            return this
         }
     }
 
@@ -444,6 +467,19 @@ class Git {
 
         fun getLastCommit(): Commit? {
             return commits.lastOrNull()
+        }
+
+        /**
+         * Build the branch.
+         * This loads any asynchronous content allowing hashes to be calculated and additional metadata to be (pre-)known.
+         *
+         * @return The branch
+         */
+        fun build(): Branch {
+            commits.forEach { commit ->
+                commit.build()
+            }
+            return this
         }
     }
 
