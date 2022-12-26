@@ -182,8 +182,12 @@ class Git {
             REF_MAX(9, "max")
         }
 
+        private var objectHash: ByteArray = byteArrayOf()
+        private var objectHashGenerated: LocalDateTime? = null
+
         private var objectContent: ByteArray = byteArrayOf()
         private var objectContentGenerated: LocalDateTime? = null
+
         private var objectContentChanged: LocalDateTime = LocalDateTime.now()
 
         private var objectLock = ReentrantReadWriteLock()
@@ -202,8 +206,12 @@ class Git {
             objectContentChanged = LocalDateTime.now()
         }
 
-        protected open fun hasChanged(): Boolean {
+        protected open fun hasContentChanged(): Boolean {
             return (objectContentGenerated == null || objectContentChanged.isAfter(objectContentGenerated))
+        }
+
+        protected open fun hasHashChanged(): Boolean {
+            return (objectHashGenerated == null || objectContentChanged.isAfter(objectHashGenerated))
         }
 
         protected open fun keepInMemory(): Boolean {
@@ -222,12 +230,19 @@ class Git {
          */
         fun toObject(): ByteArray {
             return read {
-                if (!keepInMemory() || hasChanged()) {
+                if (!keepInMemory() || hasContentChanged()) {
                     objectContent = toObjectContent()
                     objectContentGenerated = LocalDateTime.now()
                 }
+
                 val prefix = "${type.prefix} ${objectContent.size}${0.toChar()}"
-                prefix.toByteArray() + objectContent
+                val gitObject = prefix.toByteArray() + objectContent
+
+                if(!keepInMemory()) {
+                    objectContent = byteArrayOf()
+                }
+
+                gitObject
             }
         }
 
@@ -236,7 +251,12 @@ class Git {
         }
 
         fun hashBytes(): ByteArray {
-            return MessageDigest.getInstance("SHA-1").digest(toObject())
+            if(objectHash.isEmpty() || hasHashChanged()) {
+                objectHash = MessageDigest.getInstance("SHA-1").digest(toObject())
+                objectHashGenerated = LocalDateTime.now()
+            }
+            return objectHash
+        }
 
         /**
          * Build the commit.
