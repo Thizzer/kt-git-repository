@@ -308,15 +308,7 @@ class Git {
         private fun addChild(`object`: NamedObject) {
             write {
                 children.add(`object`)
-                children.sortWith { a, b ->
-                    if (a.name.startsWith(b.name)) {
-                        -1
-                    } else if (b.name.startsWith(a.name)) {
-                        1
-                    } else {
-                        a.name.compareTo(b.name)
-                    }
-                }
+                children.sortBy { it.name };
             }
         }
 
